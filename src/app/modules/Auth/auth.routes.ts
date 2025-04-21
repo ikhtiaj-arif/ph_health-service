@@ -24,6 +24,10 @@ router.post(
     auth(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR, UserRole.PATIENT),
     AuthController.forgotPassword
 )
+router.post(
+    "/reset-password",
+    AuthController.resetPassword
+)
 
 
 export const AuthRoutes = router 
