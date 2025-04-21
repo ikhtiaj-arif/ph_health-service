@@ -1,14 +1,17 @@
 import bcrypt from "bcrypt";
-import jwt, { JwtPayload } from "jsonwebtoken";
+import jwt, { JwtPayload, Secret } from "jsonwebtoken";
 import { jwtHelpers } from "../../../helpers/jwtHelpers";
 import prisma from "../../../shared/prisma";
 import { UserStatus } from "@prisma/client";
+import config from "../../../config";
+import { appendFile } from "fs";
+import { hash } from "crypto";
 
 const loginUser = async (payload: { email: string; password: string }) => {
   const userData = await prisma.user.findUniqueOrThrow({
     where: {
       email: payload.email,
-      status: UserStatus.ACTIVE
+      status: UserStatus.ACTIVE,
     },
   });
 
@@ -26,8 +29,8 @@ const loginUser = async (payload: { email: string; password: string }) => {
       email: userData.email,
       role: userData.role,
     },
-    "1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0t1u2v3w4x5y6z7",
-    "5m"
+    config.jwt.jwt_secret as Secret,
+    config.jwt.expires_in as string
   );
 
   const refreshToken = jwtHelpers.generateToken(
@@ -35,8 +38,8 @@ const loginUser = async (payload: { email: string; password: string }) => {
       email: userData.email,
       role: userData.role,
     },
-    "1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0t1u2v3w4x5y6z7",
-    "30d"
+    config.jwt.refresh_token_secret as Secret,
+    config.jwt.refresh_token_expires_in as string
   );
 
   return {
@@ -51,13 +54,12 @@ const refreshToken = async (token: string) => {
   try {
     decodedData = jwtHelpers.verifyToken(
       token,
-      "1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0t1u2v3w4x5y6z7"
+      config.jwt.jwt_secret as Secret
     );
     const userData = await prisma.user.findUniqueOrThrow({
       where: {
         email: decodedData.email,
-        status: UserStatus.ACTIVE
-        
+        status: UserStatus.ACTIVE,
       },
     });
 
@@ -66,8 +68,8 @@ const refreshToken = async (token: string) => {
         email: userData.email,
         role: userData.role,
       },
-      "1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0t1u2v3w4x5y6z7",
-      "5m"
+      config.jwt.jwt_secret as Secret,
+      config.jwt.expires_in as string
     );
 
     return {
@@ -79,7 +81,58 @@ const refreshToken = async (token: string) => {
   }
 };
 
+const changePassword = async (user: any, payload: any) => {
+  const userData = await prisma.user.findUniqueOrThrow({
+    where: {
+      email: user.email,
+    },
+  });
+
+  const isCorrectPassword = await bcrypt.compare(
+    payload.oldPassword,
+    userData.password
+  );
+
+  if (!isCorrectPassword) {
+    throw new Error("Incorrect Password!");
+  }
+
+  const hashedPassword = await bcrypt.hash(payload.newPassword, 12);
+
+  await prisma.user.update({
+    where: {
+      email: userData.email,
+      status: UserStatus.ACTIVE,
+    },
+    data: {
+      password: hashedPassword,
+      needPasswordChange: false,
+    },
+  });
+
+  return {
+    message: "password changed successfully!",
+  };
+};
+
+const forgotPassword = async (payload: { email: string }) => {
+  const userData = await prisma.user.findUniqueOrThrow({
+    where: {
+      email: payload.email,
+      status: UserStatus.ACTIVE,
+    },
+  });
+  const resetPasswordToken = jwtHelpers.generateToken(
+    { email: payload.email, role: userData.role },
+    config.jwt.reset_pass_secret as string,
+    config.jwt.reset_pass_token_exp_in as string
+  );
+  console.log(resetPasswordToken);
+};
+
 export const AuthService = {
   loginUser,
   refreshToken,
+  changePassword,
+  forgotPassword,
 };
