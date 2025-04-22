@@ -1,26 +1,28 @@
-import { Request, Response } from "express";
-import { userService } from "./user.service";
+import { NextFunction, Request, Response } from "express";
 import httpStatus from "http-status";
+import { userService } from "./user.service";
+import catchAsync from "../../../shared/catchAsync";
 
-const createAdmin = async (req: Request, res: Response) => {
-  // console.log(req.body);
-  try {
-  const result = await userService.createAdmin(req.body);
+const createAdmin = catchAsync(async (req: Request, res: Response) => {
+  const result = await userService.createAdmin(req);
 
-    res.status(httpStatus.CREATED).json({
-      success: true,
-      message: "Admin created successfully",
-      data: result,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.name || "Failed to create admin",
-      error: error,
-    });
-  }
-};
+  res.status(httpStatus.CREATED).json({
+    success: true,
+    message: "Admin created successfully",
+    data: result,
+  });
+});
+const createDoctor = catchAsync(async (req: Request, res: Response) => {
+  const result = await userService.createDoctor(req);
+
+  res.status(httpStatus.CREATED).json({
+    success: true,
+    message: "Doctor created successfully",
+    data: result,
+  });
+});
 
 export const userController = {
   createAdmin,
+  createDoctor
 };
